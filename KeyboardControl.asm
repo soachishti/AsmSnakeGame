@@ -8,7 +8,7 @@ VK_LEFT		EQU		000000025h
 VK_UP		EQU		000000026h
 VK_RIGHT	EQU		000000027h
 VK_DOWN		EQU		000000028h
-maxCol      EQU     80
+maxCol      EQU     79
 maxRow      EQU     20
 
 GetKeyState PROTO, nVirtKey:DWORD
@@ -25,7 +25,7 @@ looop:
     mov ah, 0
 
     INVOKE GetKeyState, VK_DOWN
-	.IF ah && row < [maxRow]
+	.IF ah && row < maxRow
         ;mWriteLn "DOWN"
         INC row
   	.ENDIF
@@ -43,18 +43,17 @@ looop:
 	.ENDIF  
 
 	INVOKE GetKeyState, VK_RIGHT
-    .IF ah && col < [maxCol]
+    .IF ah && col < maxCol
         ;mWriteLn "RIGHT"
         INC col
 	.ENDIF     
         
-    mov  al,' '     
-    call WriteChar      ; Remove previous data
+
 
     mov  dl, col        ; column
     mov  dh, row        ; row
     call Gotoxy         ; Change position according to new input
-     
+        
     mov  al, '*'          
     call WriteChar      ; Write point on new place
  
@@ -67,7 +66,19 @@ looop:
     ;call WriteInt
     ;call Crlf
  
-    invoke Sleep, 100
+    invoke Sleep, 25
+    
+    
+    ; Erase Point
+    mov  dl, col        ; column
+    mov  dh, row        ; row
+    call Gotoxy         ; Change position according to new input
+    
+    mov  al,' '     
+    call WriteChar      ; Remove previous data
+
+    
+    
     jmp looop
 
 	exit
