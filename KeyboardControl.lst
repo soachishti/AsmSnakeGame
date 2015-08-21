@@ -1,6 +1,9 @@
-Microsoft (R) Macro Assembler Version 6.15.8803		    08/22/15 00:00:56
+Microsoft (R) Macro Assembler Version 6.15.8803		    08/22/15 01:58:51
 Keyboard Toggle Keys             (Keybd.asm)		     Page 1 - 1
 
+
+				; Remove usage of mWrite
+				; Highly optimization need in PrintSnake
 
 				TITLE Keyboard Toggle Keys             (Keybd.asm)
 
@@ -37,66 +40,105 @@ Keyboard Toggle Keys             (Keybd.asm)		     Page 1 - 1
    ========="
  = 0000007C			wallLeft      EQU     '|'
  = 00000019			SnakeSpeed    EQU     25
- = 00000064			maxSnakeSize  EQU     100
+ = 000000FF			maxSnakeSize  EQU     255
 				      
 				GetKeyState PROTO, nVirtKey:DWORD
 
  00000000			.data
  00000000 01			    col         BYTE    1
  00000001 01			    row         BYTE    1
- 00000002  0000000A [		    SnakeBody   BODY    10 DUP(<0,0>)
+ 00000002  000000FF [		    SnakeBody   BODY    maxSnakeSize DUP(<0,0>)
 	    00 00
 	   ]
- 00000016 03			    currSize    BYTE    3
+ 00000200 03			    currSize    BYTE    3   
+ 00000201 03			    currIndex   BYTE    3   ; must be same as currSize
+ 00000202 00			    tail        BYTE    0
+ 00000203 00			    tmp         BYTE    0
  00000000			.code
 
  00000000			InitSnakeBody PROC
- 00000000  8A 0D 00000016 R	    mov cl, currSize
- 00000006  33 C9		    xor ecx, ecx
+
+ 00000000  B4 28		    mov ah, 40  ;col
+ 00000002  B0 0A		    mov al, 10  ;row
+ 00000004  B9 00000000		    mov ECX, 0
+ 00000009  8A 0D 00000200 R	    mov cl, currSize
 				    .WHILE cl
- 0000000A  BE 00000002 R	        MOV esi, OFFSET SnakeBody
- 0000000F  32 ED		        XOR ch, ch
- 00000011  66| C7 04 4E		        MOV BODY PTR [esi + 2 * ECX], 1
-	   0001
- 00000017  49			        DEC ECX
+ 00000011  BE 00000002 R	        MOV esi, OFFSET SnakeBody
+				        
+ 00000016  88 24 4D		        MOV BYTE PTR SnakeBody[2 * ecx].x, ah
+	   00000002 R
+ 0000001D  88 04 4D		        MOV BYTE PTR SnakeBody[2 * ecx].y, al
+	   00000003 R
+				        
+				        mGotoxy SnakeBody[2 * ecx].x, SnakeBody[2 * ecx].y
+ 00000024  52		     1		push edx
+ 00000025  8A 34 4D	     1	    mov  dh,SnakeBody[2 * ecx].y
+	   00000003 R
+ 0000002C  8A 14 4D	     1	    mov  dl,SnakeBody[2 * ecx].x
+	   00000002 R
+ 00000033  E8 00000000 E     1		call Gotoxy
+ 00000038  5A		     1		pop  edx
+				        mWrite "*"
+ 00000204		     1		.data				
+ 00000204 2A 00		     1		??0000 BYTE "*",0		
+ 00000039		     1		.code
+ 00000039  52		     1		push edx
+ 0000003A  BA 00000204 R     1		mov  edx,OFFSET ??0000
+ 0000003F  E8 00000000 E     1		call Writestring
+ 00000044  5A		     1		pop  edx
+				        
+ 00000045  FE CC		        DEC ah
+ 00000047  49			        DEC ECX
 				    .ENDW
- 0000001C			InitSnakeBody ENDP
+				    
+ 0000004C			InitSnakeBody ENDP
 
+ 0000004C			addBody PROC, X:BYTE, Y:BYTE
+				    ; mov dl, SnakeBody[2 * ecx - 1].x + X
+				    ; mov SnakeBody[2 * ecx].x, dl
+				    ; mov dl, SnakeBody[2 * ecx - 1].y + Y
+				    ; mov SnakeBody[2 * ecx].y, dl
+				    ; INC ECX
+				    ; INC currIndex
+				    ; .IF currIndex == maxSnakeSize - 1 
+				        ; MOV currIndex, 0
+				    ; .ENDIF  
+ 0000004C			addBody ENDP
 
- 0000001C			KeySync PROC
- 0000001C  B4 00		    mov ah, 0
+ 0000004C			KeySync PROC
+ 0000004C  B4 00		    mov ah, 0
 				    INVOKE GetKeyState, VK_DOWN
 					.IF ah && row < maxRow 
- 00000032  FE 05 00000001 R	        INC row
+ 00000062  FE 05 00000001 R	        INC row
 				  	.ENDIF
 
 					INVOKE GetKeyState, VK_UP
 				    .IF ah && row > 0
- 0000004C  FE 0D 00000001 R	        DEC row
-					.ENDIF     
+ 0000007C  FE 0D 00000001 R	        DEC row
+				    .ENDIF     
 
 					INVOKE GetKeyState, VK_LEFT
 				    .IF ah && col > 0 
- 00000066  FE 0D 00000000 R	        DEC col
-					.ENDIF  
+ 00000096  FE 0D 00000000 R	        DEC col
+				    .ENDIF  
 
 					INVOKE GetKeyState, VK_RIGHT
 				    .IF ah && col < maxCol
- 00000080  FE 05 00000000 R	        INC col
-					.ENDIF     
- 00000086  C3			    ret
- 00000087			KeySync ENDP
+ 000000B0  FE 05 00000000 R	        INC col
+				    .ENDIF     
+ 000000B6  C3			    ret
+ 000000B7			KeySync ENDP
 
- 00000087			PrintWall PROC
+ 000000B7			PrintWall PROC
 				    mGotoxy 0, 0     
- 00000087  52		     1		push edx
- 00000088  B6 00	     1	    mov  dh,0
- 0000008A  B2 00	     1	    mov  dl,0
- 0000008C  E8 00000000 E     1		call Gotoxy
- 00000091  5A		     1		pop  edx
+ 000000B7  52		     1		push edx
+ 000000B8  B6 00	     1	    mov  dh,0
+ 000000BA  B2 00	     1	    mov  dl,0
+ 000000BC  E8 00000000 E     1		call Gotoxy
+ 000000C1  5A		     1		pop  edx
 				    mWrite wallTop
- 00000017		     1		.data				
- 00000017 3D 3D 3D 3D 3D     1		??0000 BYTE wallTop,0		
+ 00000206		     1		.data				
+ 00000206 3D 3D 3D 3D 3D     1		??0001 BYTE wallTop,0		
 	   3D 3D 3D 3D 3D
 	   3D 3D 3D 3D 3D
 	   3D 3D 3D 3D 3D
@@ -113,20 +155,20 @@ Keyboard Toggle Keys             (Keybd.asm)		     Page 1 - 1
 	   3D 3D 3D 3D 3D
 	   3D 3D 3D 3D 3D
 	   00
- 00000092		     1		.code
- 00000092  52		     1		push edx
- 00000093  BA 00000017 R     1		mov  edx,OFFSET ??0000
- 00000098  E8 00000000 E     1		call Writestring
- 0000009D  5A		     1		pop  edx
+ 000000C2		     1		.code
+ 000000C2  52		     1		push edx
+ 000000C3  BA 00000206 R     1		mov  edx,OFFSET ??0001
+ 000000C8  E8 00000000 E     1		call Writestring
+ 000000CD  5A		     1		pop  edx
 				    mGotoxy 0, maxRow    
- 0000009E  52		     1		push edx
- 0000009F  B6 14	     1	    mov  dh,maxRow
- 000000A1  B2 00	     1	    mov  dl,0
- 000000A3  E8 00000000 E     1		call Gotoxy
- 000000A8  5A		     1		pop  edx
+ 000000CE  52		     1		push edx
+ 000000CF  B6 14	     1	    mov  dh,maxRow
+ 000000D1  B2 00	     1	    mov  dl,0
+ 000000D3  E8 00000000 E     1		call Gotoxy
+ 000000D8  5A		     1		pop  edx
 				    mWrite wallTop
- 00000068		     1		.data				
- 00000068 3D 3D 3D 3D 3D     1		??0001 BYTE wallTop,0		
+ 00000257		     1		.data				
+ 00000257 3D 3D 3D 3D 3D     1		??0002 BYTE wallTop,0		
 	   3D 3D 3D 3D 3D
 	   3D 3D 3D 3D 3D
 	   3D 3D 3D 3D 3D
@@ -143,110 +185,176 @@ Keyboard Toggle Keys             (Keybd.asm)		     Page 1 - 1
 	   3D 3D 3D 3D 3D
 	   3D 3D 3D 3D 3D
 	   00
- 000000A9		     1		.code
- 000000A9  52		     1		push edx
- 000000AA  BA 00000068 R     1		mov  edx,OFFSET ??0001
- 000000AF  E8 00000000 E     1		call Writestring
- 000000B4  5A		     1		pop  edx
+ 000000D9		     1		.code
+ 000000D9  52		     1		push edx
+ 000000DA  BA 00000257 R     1		mov  edx,OFFSET ??0002
+ 000000DF  E8 00000000 E     1		call Writestring
+ 000000E4  5A		     1		pop  edx
 				        
- 000000B5  B1 13		    mov cl, maxRow - 1 
+ 000000E5  B1 13		    mov cl, maxRow - 1 
 				    .while cl
 				        mGotoxy 0, cl   
- 000000B9  52		     1		push edx
- 000000BA  8A F1	     1	    mov  dh,cl
- 000000BC  B2 00	     1	    mov  dl,0
- 000000BE  E8 00000000 E     1		call Gotoxy
- 000000C3  5A		     1		pop  edx
+ 000000E9  52		     1		push edx
+ 000000EA  8A F1	     1	    mov  dh,cl
+ 000000EC  B2 00	     1	    mov  dl,0
+ 000000EE  E8 00000000 E     1		call Gotoxy
+ 000000F3  5A		     1		pop  edx
 				        mWrite wallLeft
- 000000B9		     1		.data				
- 000000B9 7C 00		     1		??0002 BYTE wallLeft,0		
- 000000C4		     1		.code
- 000000C4  52		     1		push edx
- 000000C5  BA 000000B9 R     1		mov  edx,OFFSET ??0002
- 000000CA  E8 00000000 E     1		call Writestring
- 000000CF  5A		     1		pop  edx
+ 000002A8		     1		.data				
+ 000002A8 7C 00		     1		??0003 BYTE wallLeft,0		
+ 000000F4		     1		.code
+ 000000F4  52		     1		push edx
+ 000000F5  BA 000002A8 R     1		mov  edx,OFFSET ??0003
+ 000000FA  E8 00000000 E     1		call Writestring
+ 000000FF  5A		     1		pop  edx
 				        mGotoxy maxCol, cl
- 000000D0  52		     1		push edx
- 000000D1  8A F1	     1	    mov  dh,cl
- 000000D3  B2 4F	     1	    mov  dl,maxCol
- 000000D5  E8 00000000 E     1		call Gotoxy
- 000000DA  5A		     1		pop  edx
+ 00000100  52		     1		push edx
+ 00000101  8A F1	     1	    mov  dh,cl
+ 00000103  B2 4F	     1	    mov  dl,maxCol
+ 00000105  E8 00000000 E     1		call Gotoxy
+ 0000010A  5A		     1		pop  edx
 				        mWrite wallLeft
- 000000BB		     1		.data				
- 000000BB 7C 00		     1		??0003 BYTE wallLeft,0		
- 000000DB		     1		.code
- 000000DB  52		     1		push edx
- 000000DC  BA 000000BB R     1		mov  edx,OFFSET ??0003
- 000000E1  E8 00000000 E     1		call Writestring
- 000000E6  5A		     1		pop  edx
- 000000E7  FE C9		        DEC cl
+ 000002AA		     1		.data				
+ 000002AA 7C 00		     1		??0004 BYTE wallLeft,0		
+ 0000010B		     1		.code
+ 0000010B  52		     1		push edx
+ 0000010C  BA 000002AA R     1		mov  edx,OFFSET ??0004
+ 00000111  E8 00000000 E     1		call Writestring
+ 00000116  5A		     1		pop  edx
+ 00000117  FE C9		        DEC cl
 				    .endw
- 000000ED  C3			    ret
- 000000EE			PrintWall ENDP
+ 0000011D  C3			    ret
+ 0000011E			PrintWall ENDP
 
- 000000EE			isGameOver PROC
-				    .IF col == 0 || col == maxCol || row == 0|| row == maxRow
- 00000112  B8 00000000		        mov EAX, 0
+ 0000011E			isGameOver PROC
+				    .IF col == 0 || col == maxCol || row == 0 || row == maxRow
+ 00000142  B8 00000000		        mov EAX, 0
 				    .ENDIF
- 00000117  B8 00000001		    mov EAX, 1
- 0000011C			isGameOver ENDP
+ 00000147  B8 00000001		    mov EAX, 1
+ 0000014C			isGameOver ENDP
 
- 0000011C			printSnake PROC
+ 0000014C			printSnake2 PROC
+				    ; mov EAX, 0 
+				    ; mov ECX, 0
+				    ; mov al, currSize
+				    ; mov cl, currIndex
+
+				    ; mGotoxy SnakeBody[2 * ECX - 1].x, SnakeBody[2 * ECX - 1].y ; Erase last elements
+				    ; mWrite " "
+				    
+				    ; .WHILE eax
+				        ; mGotoxy SnakeBody[2 * ECX].x, SnakeBody[2 * ECX].y
+				        ; mWrite "*"
+				        
+				        ; .IF ECX == 0 ; Moving to end of array to continue from there
+				            ; mov ECX, maxSnakeSize
+				        ; .ELSE
+				            ; DEC ecx
+				        ; .ENDIF
+				        
+				        ; DEC eax
+				    ; .ENDW
+ 0000014C			printSnake2 ENDP    
+				    
+ 0000014C			printSnake PROC    
 				    mGotoxy col, row
- 0000011C  52		     1		push edx
- 0000011D  8A 35 00000001 R  1	    mov  dh,row
- 00000123  8A 15 00000000 R  1	    mov  dl,col
- 00000129  E8 00000000 E     1		call Gotoxy
- 0000012E  5A		     1		pop  edx
+ 0000014C  52		     1		push edx
+ 0000014D  8A 35 00000001 R  1	    mov  dh,row
+ 00000153  8A 15 00000000 R  1	    mov  dl,col
+ 00000159  E8 00000000 E     1		call Gotoxy
+ 0000015E  5A		     1		pop  edx
 				    mWrite "*"    
- 000000BD		     1		.data				
- 000000BD 2A 00		     1		??0004 BYTE "*",0		
- 0000012F		     1		.code
- 0000012F  52		     1		push edx
- 00000130  BA 000000BD R     1		mov  edx,OFFSET ??0004
- 00000135  E8 00000000 E     1		call Writestring
- 0000013A  5A		     1		pop  edx
+ 000002AC		     1		.data				
+ 000002AC 2A 00		     1		??0005 BYTE "*",0		
+ 0000015F		     1		.code
+ 0000015F  52		     1		push edx
+ 00000160  BA 000002AC R     1		mov  edx,OFFSET ??0005
+ 00000165  E8 00000000 E     1		call Writestring
+ 0000016A  5A		     1		pop  edx
 				      
 				    invoke Sleep, SnakeSpeed
 
 				    mGotoxy col, row
- 00000142  52		     1		push edx
- 00000143  8A 35 00000001 R  1	    mov  dh,row
- 00000149  8A 15 00000000 R  1	    mov  dl,col
- 0000014F  E8 00000000 E     1		call Gotoxy
- 00000154  5A		     1		pop  edx
+ 00000172  52		     1		push edx
+ 00000173  8A 35 00000001 R  1	    mov  dh,row
+ 00000179  8A 15 00000000 R  1	    mov  dl,col
+ 0000017F  E8 00000000 E     1		call Gotoxy
+ 00000184  5A		     1		pop  edx
 				    mWrite " " 
- 000000BF		     1		.data				
- 000000BF 20 00		     1		??0005 BYTE " ",0		
- 00000155		     1		.code
- 00000155  52		     1		push edx
- 00000156  BA 000000BF R     1		mov  edx,OFFSET ??0005
- 0000015B  E8 00000000 E     1		call Writestring
- 00000160  5A		     1		pop  edx
- 00000161			printSnake ENDP
+ 000002AE		     1		.data				
+ 000002AE 20 00		     1		??0006 BYTE " ",0		
+ 00000185		     1		.code
+ 00000185  52		     1		push edx
+ 00000186  BA 000002AE R     1		mov  edx,OFFSET ??0006
+ 0000018B  E8 00000000 E     1		call Writestring
+ 00000190  5A		     1		pop  edx
+ 00000191			printSnake ENDP
 
- 00000161			main PROC
- 00000161  E8 FFFFFF21		    call PrintWall
+ 00000191			printInfo PROC
+				    mGotoxy 0, maxRow + 1
+ 00000191  52		     1		push edx
+ 00000192  B6 15	     1	    mov  dh,maxRow + 1
+ 00000194  B2 00	     1	    mov  dl,0
+ 00000196  E8 00000000 E     1		call Gotoxy
+ 0000019B  5A		     1		pop  edx
+				    mWrite "Score: 123         Name: Owais       Level: Intermidiate       Press P to pause!"
+ 000002B0		     1		.data				
+ 000002B0 53 63 6F 72 65     1		??0007 BYTE "Score: 123         Name: Owais       Level: Intermidiate       Press P to pause!",0		
+	   3A 20 31 32 33
+	   20 20 20 20 20
+	   20 20 20 20 4E
+	   61 6D 65 3A 20
+	   4F 77 61 69 73
+	   20 20 20 20 20
+	   20 20 4C 65 76
+	   65 6C 3A 20 49
+	   6E 74 65 72 6D
+	   69 64 69 61 74
+	   65 20 20 20 20
+	   20 20 20 50 72
+	   65 73 73 20 50
+	   20 74 6F 20 70
+	   61 75 73 65 21
+	   00
+ 0000019C		     1		.code
+ 0000019C  52		     1		push edx
+ 0000019D  BA 000002B0 R     1		mov  edx,OFFSET ??0007
+ 000001A2  E8 00000000 E     1		call Writestring
+ 000001A7  5A		     1		pop  edx
+				    mGotoxy 0,0
+ 000001A8  52		     1		push edx
+ 000001A9  B6 00	     1	    mov  dh,0
+ 000001AB  B2 00	     1	    mov  dl,0
+ 000001AD  E8 00000000 E     1		call Gotoxy
+ 000001B2  5A		     1		pop  edx
+ 000001B3			printInfo ENDP
 
- 00000166			    foreverLoop:   
- 00000166  E8 FFFFFEB1		        call KeySync
- 0000016B  E8 FFFFFF7E		        call isGameOver
+ 000001B3			main PROC
+				    ; call getInfo ; front page
+ 000001B3  E8 FFFFFEFF		    call PrintWall
+ 000001B8  E8 FFFFFE43		    call InitSnakeBody
+ 000001BD  E8 FFFFFFCF		    call printInfo
+
+				    ; ret
+ 000001C2			    foreverLoop:   
+ 000001C2  E8 FFFFFE85		        call KeySync
+ 000001C7  E8 FFFFFF52		        call isGameOver
 				        .IF EAX
- 00000174  EB 07		            jmp GameOver
+ 000001D0  EB 07		            jmp GameOver
 				        .ENDIF
 				        
- 00000176  E8 FFFFFFA1		        call printSnake        
+ 000001D2  E8 FFFFFF75		        call printSnake        
 
- 0000017B  EB E9		        jmp foreverLoop
+ 000001D7  EB E9		        jmp foreverLoop
 				    
- 0000017D			    GameOver:
+ 000001D9			    GameOver:
 				        ; Do stuff for after gameover
- 0000017D  EB E7		        jmp foreverLoop
+ 000001D9  EB E7		        jmp foreverLoop
 				    
 					exit
- 00000186			main ENDP
+ 000001E2			main ENDP
 				END main
-Microsoft (R) Macro Assembler Version 6.15.8803		    08/22/15 00:00:56
+Microsoft (R) Macro Assembler Version 6.15.8803		    08/22/15 01:58:51
 Keyboard Toggle Keys             (Keybd.asm)		     Symbols 2 - 1
 
 
@@ -316,8 +424,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 DWord	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 000000C1 DWord	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000186 DWord	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000301 DWord	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000001E2 DWord	  Public  'CODE'	
 
 
 Procedures,  parameters and locals:
@@ -347,11 +455,11 @@ GetStdHandle . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 GetSystemTime  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 GetTickCount . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 Gotoxy . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-InitSnakeBody  . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000001C Public STDCALL
+InitSnakeBody  . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000004C Public STDCALL
 IsDigit  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-KeySync  . . . . . . . . . . . .	P Near	 0000001C _TEXT	Length= 0000006B Public STDCALL
+KeySync  . . . . . . . . . . . .	P Near	 0000004C _TEXT	Length= 0000006B Public STDCALL
 PeekConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-PrintWall  . . . . . . . . . . .	P Near	 00000087 _TEXT	Length= 00000067 Public STDCALL
+PrintWall  . . . . . . . . . . .	P Near	 000000B7 _TEXT	Length= 00000067 Public STDCALL
 Random32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 RandomRange  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 Randomize  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -388,23 +496,30 @@ WriteFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 WriteHex . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteInt . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-isGameOver . . . . . . . . . . .	P Near	 000000EE _TEXT	Length= 0000002E Public STDCALL
-main . . . . . . . . . . . . . .	P Near	 00000161 _TEXT	Length= 00000025 Public STDCALL
-  foreverLoop  . . . . . . . . .	L Near	 00000166 _TEXT	
-  GameOver . . . . . . . . . . .	L Near	 0000017D _TEXT	
-printSnake . . . . . . . . . . .	P Near	 0000011C _TEXT	Length= 00000045 Public STDCALL
+addBody  . . . . . . . . . . . .	P Near	 0000004C _TEXT	Length= 00000000 Public STDCALL
+  X  . . . . . . . . . . . . . .	Byte	 bp + 00000008
+  Y  . . . . . . . . . . . . . .	Byte	 bp + 0000000C
+isGameOver . . . . . . . . . . .	P Near	 0000011E _TEXT	Length= 0000002E Public STDCALL
+main . . . . . . . . . . . . . .	P Near	 000001B3 _TEXT	Length= 0000002F Public STDCALL
+  foreverLoop  . . . . . . . . .	L Near	 000001C2 _TEXT	
+  GameOver . . . . . . . . . . .	L Near	 000001D9 _TEXT	
+printInfo  . . . . . . . . . . .	P Near	 00000191 _TEXT	Length= 00000022 Public STDCALL
+printSnake2  . . . . . . . . . .	P Near	 0000014C _TEXT	Length= 00000000 Public STDCALL
+printSnake . . . . . . . . . . .	P Near	 0000014C _TEXT	Length= 00000045 Public STDCALL
 
 
 Symbols:
 
                 N a m e                 Type     Value    Attr
 
-??0000 . . . . . . . . . . . . .	Byte	 00000017 _DATA	
-??0001 . . . . . . . . . . . . .	Byte	 00000068 _DATA	
-??0002 . . . . . . . . . . . . .	Byte	 000000B9 _DATA	
-??0003 . . . . . . . . . . . . .	Byte	 000000BB _DATA	
-??0004 . . . . . . . . . . . . .	Byte	 000000BD _DATA	
-??0005 . . . . . . . . . . . . .	Byte	 000000BF _DATA	
+??0000 . . . . . . . . . . . . .	Byte	 00000204 _DATA	
+??0001 . . . . . . . . . . . . .	Byte	 00000206 _DATA	
+??0002 . . . . . . . . . . . . .	Byte	 00000257 _DATA	
+??0003 . . . . . . . . . . . . .	Byte	 000002A8 _DATA	
+??0004 . . . . . . . . . . . . .	Byte	 000002AA _DATA	
+??0005 . . . . . . . . . . . . .	Byte	 000002AC _DATA	
+??0006 . . . . . . . . . . . . .	Byte	 000002AE _DATA	
+??0007 . . . . . . . . . . . . .	Byte	 000002B0 _DATA	
 @CodeSize  . . . . . . . . . . .	Number	 00000000h   
 @DataSize  . . . . . . . . . . .	Number	 00000000h   
 @Interface . . . . . . . . . . .	Number	 00000003h   
@@ -483,7 +598,8 @@ black  . . . . . . . . . . . . .	Number	 00000000h
 blue . . . . . . . . . . . . . .	Number	 00000001h   
 brown  . . . . . . . . . . . . .	Number	 00000006h   
 col  . . . . . . . . . . . . . .	Byte	 00000000 _DATA	
-currSize . . . . . . . . . . . .	Byte	 00000016 _DATA	
+currIndex  . . . . . . . . . . .	Byte	 00000201 _DATA	
+currSize . . . . . . . . . . . .	Byte	 00000200 _DATA	
 cyan . . . . . . . . . . . . . .	Number	 00000003h   
 exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
 gray . . . . . . . . . . . . . .	Number	 00000008h   
@@ -497,9 +613,11 @@ lightRed . . . . . . . . . . . .	Number	 0000000Ch
 magenta  . . . . . . . . . . . .	Number	 00000005h   
 maxCol . . . . . . . . . . . . .	Number	 0000004Fh   
 maxRow . . . . . . . . . . . . .	Number	 00000014h   
-maxSnakeSize . . . . . . . . . .	Number	 00000064h   
+maxSnakeSize . . . . . . . . . .	Number	 000000FFh   
 red  . . . . . . . . . . . . . .	Number	 00000004h   
 row  . . . . . . . . . . . . . .	Byte	 00000001 _DATA	
+tail . . . . . . . . . . . . . .	Byte	 00000202 _DATA	
+tmp  . . . . . . . . . . . . . .	Byte	 00000203 _DATA	
 wallLeft . . . . . . . . . . . .	Number	 0000007Ch   
 wallTop  . . . . . . . . . . . .	Text   	 "================================================================================"
 white  . . . . . . . . . . . . .	Number	 0000000Fh   

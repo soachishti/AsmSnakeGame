@@ -1,3 +1,6 @@
+; Remove usage of mWrite
+; Highly optimization need in PrintSnake
+
 TITLE Keyboard Toggle Keys             (Keybd.asm)
 
 INCLUDE Irvine32.inc
@@ -18,28 +21,52 @@ maxRow        EQU     20
 wallTop       EQU     "================================================================================"
 wallLeft      EQU     '|'
 SnakeSpeed    EQU     25
-maxSnakeSize  EQU     100
+maxSnakeSize  EQU     255
       
 GetKeyState PROTO, nVirtKey:DWORD
 
 .data
     col         BYTE    1
     row         BYTE    1
-    SnakeBody   BODY    10 DUP(<0,0>)
-    currSize    BYTE    3
+    SnakeBody   BODY    maxSnakeSize DUP(<0,0>)
+    currSize    BYTE    3   
+    currIndex   BYTE    3   ; must be same as currSize
+    tail        BYTE    0
+    tmp         BYTE    0
 .code
 
 InitSnakeBody PROC
+
+    mov ah, 40  ;col
+    mov al, 10  ;row
+    mov ECX, 0
     mov cl, currSize
-    xor ecx, ecx
     .WHILE cl
         MOV esi, OFFSET SnakeBody
-        XOR ch, ch
-        MOV BODY PTR [esi + 2 * ECX], 1
+        
+        MOV BYTE PTR SnakeBody[2 * ecx].x, ah
+        MOV BYTE PTR SnakeBody[2 * ecx].y, al
+        
+        mGotoxy SnakeBody[2 * ecx].x, SnakeBody[2 * ecx].y
+        mWrite "*"
+        
+        DEC ah
         DEC ECX
     .ENDW
+    
 InitSnakeBody ENDP
 
+addBody PROC, X:BYTE, Y:BYTE
+    ; mov dl, SnakeBody[2 * ecx - 1].x + X
+    ; mov SnakeBody[2 * ecx].x, dl
+    ; mov dl, SnakeBody[2 * ecx - 1].y + Y
+    ; mov SnakeBody[2 * ecx].y, dl
+    ; INC ECX
+    ; INC currIndex
+    ; .IF currIndex == maxSnakeSize - 1 
+        ; MOV currIndex, 0
+    ; .ENDIF  
+addBody ENDP
 
 KeySync PROC
     mov ah, 0
@@ -51,17 +78,17 @@ KeySync PROC
 	INVOKE GetKeyState, VK_UP
     .IF ah && row > 0
         DEC row
-	.ENDIF     
+    .ENDIF     
 
 	INVOKE GetKeyState, VK_LEFT
     .IF ah && col > 0 
         DEC col
-	.ENDIF  
+    .ENDIF  
 
 	INVOKE GetKeyState, VK_RIGHT
     .IF ah && col < maxCol
         INC col
-	.ENDIF     
+    .ENDIF     
     ret
 KeySync ENDP
 
@@ -83,13 +110,36 @@ PrintWall PROC
 PrintWall ENDP
 
 isGameOver PROC
-    .IF col == 0 || col == maxCol || row == 0|| row == maxRow
+    .IF col == 0 || col == maxCol || row == 0 || row == maxRow
         mov EAX, 0
     .ENDIF
     mov EAX, 1
 isGameOver ENDP
 
-printSnake PROC
+printSnake2 PROC
+    ; mov EAX, 0 
+    ; mov ECX, 0
+    ; mov al, currSize
+    ; mov cl, currIndex
+
+    ; mGotoxy SnakeBody[2 * ECX - 1].x, SnakeBody[2 * ECX - 1].y ; Erase last elements
+    ; mWrite " "
+    
+    ; .WHILE eax
+        ; mGotoxy SnakeBody[2 * ECX].x, SnakeBody[2 * ECX].y
+        ; mWrite "*"
+        
+        ; .IF ECX == 0 ; Moving to end of array to continue from there
+            ; mov ECX, maxSnakeSize
+        ; .ELSE
+            ; DEC ecx
+        ; .ENDIF
+        
+        ; DEC eax
+    ; .ENDW
+printSnake2 ENDP    
+    
+printSnake PROC    
     mGotoxy col, row
     mWrite "*"    
       
@@ -99,9 +149,19 @@ printSnake PROC
     mWrite " " 
 printSnake ENDP
 
-main PROC
-    call PrintWall
+printInfo PROC
+    mGotoxy 0, maxRow + 1
+    mWrite "Score: 123         Name: Owais       Level: Intermidiate       Press P to pause!"
+    mGotoxy 0,0
+printInfo ENDP
 
+main PROC
+    ; call getInfo ; front page
+    call PrintWall
+    call InitSnakeBody
+    call printInfo
+
+    ; ret
     foreverLoop:   
         call KeySync
         call isGameOver
