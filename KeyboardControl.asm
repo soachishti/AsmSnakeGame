@@ -1,5 +1,6 @@
 ; Remove usage of mWrite
 ; Highly optimization need in PrintSnake
+; Problem when array end
 
 TITLE Keyboard Toggle Keys             (Keybd.asm)
 
@@ -21,44 +22,43 @@ maxCol        EQU     79
 maxRow        EQU     20
 wallTop       EQU     "================================================================================"
 wallLeft      EQU     '|'
-
-maxSnakeSize  EQU     255
+maxSnakeSize  EQU     250
       
 GetKeyState PROTO, nVirtKey:DWORD
 
 .data
-    SnakeSpeed  DWORD   25
+    SnakeSpeed  DWORD   75
     playerName  BYTE    13+1 DUP (?)
-    col         BYTE    1
-    row         BYTE    1
-    SnakeBody   AXIS   maxSnakeSize DUP(<0,0>)
+    col         BYTE    40
+    row         BYTE    10
+    SnakeBody   AXIS    maxSnakeSize DUP(<0,0>)
     currSize    BYTE    3   
     currIndex   BYTE    3   ; must be same as currSize
-    tmp         BYTE    0
+    tmp         DWORD   0
     score       DWORD   0
     tChar       BYTE    0
     FoodLoc     AXIS    <0,0>
+    
+    LEFT        BYTE    0
+    RIGHT       BYTE    1   ; Start moving to right after starting 
+    UP          BYTE    0
+    DOWN        BYTE    0
+    foodSign    BYTE    '@'
 .code
 INCLUDE procedures.inc
 
-
-
-
-main PROC
-    
-    ;call pausedView    ; Return in EAX 
-    
+main PROC    
     call front ; front page
+    
     StartFromMenu:
     call mainMenu
-    call InitSnakeBody
     
     Restart:
+    call GenerateFood
     call PrintWall
-    call printInfo
-
    
     foreverLoop:   
+        call EatAndGrow
         call KeySync
         .IF EAX == -1
             jmp GamePaused
@@ -69,12 +69,13 @@ main PROC
             jmp GameOver
         .ENDIF
         
-        call printSnake    
-
+        call printSnake2  
+        call printInfo
+        INC score
        jmp foreverLoop
    
     GamePaused:
-        invoke Sleep, 500
+        invoke Sleep, 100
         call pausedView
         mov tChar, al
         .IF tChar == 0      ;Resume
@@ -98,6 +99,7 @@ main PROC
 
         .IF tChar == 0      ; Restart
             call ResetData
+            call ClrScr
             jmp Restart
             ret
         .ELSEIF tChar == 1  ; Main menu
