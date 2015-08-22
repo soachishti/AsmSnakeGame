@@ -12,46 +12,21 @@ SetDirection PROC, R:BYTE, L:BYTE, U:BYTE, D:BYTE
     mov DOWN, dl
     ret
 SetDirection ENDP
-  
-
-; InitSnakeBody PROC
-
-
-    ; mov col, 40 ; update game col
-    ; mov row, 10 ; update game row
-    ; mov ah, 40  ;col
-    ; mov al, 10  ;row
-    
-    ; mov ecx, 0
-    ; mov cl, currSize
-    
-    ; .WHILE cl
-        ; MOV esi, OFFSET SnakeBody
-        
-        ; MOV SnakeBody[2 * ecx].x, ah
-        ; MOV SnakeBody[2 * ecx].y, al
-        
-        ; mGotoxy SnakeBody[2 * ecx].x, SnakeBody[2 * ecx].y
-        ; mWrite "*"
-        
-        ; DEC ah
-        ; DEC cl
-    ; .ENDW   
-    ; ; INC currSize
-    ; invoke SetDirection, 1, 0, 0, 0
-    ; ret
-; InitSnakeBody ENDP
-
-
 
 KeySync PROC
     mov ah, 0
-    INVOKE GetKeyState, 'p'
+    INVOKE GetKeyState, VK_ESCAPE
 	.IF ah 
         mov eax, -1
         ret
   	.ENDIF
-
+    
+    mov ah, 0
+    INVOKE GetKeyState, 'a'
+	.IF ah 
+        add score, 100
+  	.ENDIF
+    
     mov ah, 0
     INVOKE GetKeyState, VK_DOWN
 	.IF ah && row < maxRow
@@ -102,7 +77,7 @@ EatAndGrow PROC
     mov al, row
     .IF ah == FoodLoc.x && al == FoodLoc.y
         call GenerateFood
-        INC currSize
+        INC headIndex    ; Bound will be handle in KeySync    
         ADD score, 10
     .ENDIF
     
@@ -137,7 +112,7 @@ isGameOver ENDP
 
 printSnake2 PROC
     mov ecx, 0
-    mov cl, currIndex   ; current head pos in array
+    mov cl, headIndex   ; current head pos in array
     
     ; Add current x and y axis to SnakeBody
     mov al, col
@@ -146,45 +121,28 @@ printSnake2 PROC
     mov SnakeBody[2 * ecx].x, al
     mov SnakeBody[2 * ecx].y, ah
     
-    INC currIndex   ; new node added
-    
     mGotoxy SnakeBody[2 * ecx].x, SnakeBody[2 * ecx].y
     mWrite "*"  
     
     invoke Sleep, SnakeSpeed
-    
-    mov edx, 0 
-    mov ecx, 0 
-    mov cl, currIndex
-    mov dl, currSize
-    sub cl, dl    
-    ;.IF cl < 0
-    ;    add cl, 255     ; convert negative to positive
-    ;    add cl, currIndex  ; subtract negative exceeding value from maxSnakeSize to get index which is at last, 254-250-0-1-2-3
-    ;.ENDIF
-    
-    
-    ; ; For handling head index when size of array exceeded
-    ; ; ECX will be equal to the tail
-    ; mov eax, 0
-    ; mov cl, currIndex
-    ; mov ah, currSize
-    ; .WHILE ah
-        ; .IF cl == 0
-            ; mov cl, maxSnakeSize
-        ; .ENDIF
-        ; DEC cl
-        ; DEC ah
-    ; .ENDW
-
+      
+    mov ecx, 0  
+    mov cl, tailIndex
     .IF SnakeBody[2 * ecx].x != 0
         mGotoxy SnakeBody[2 * ecx].x, SnakeBody[2 * ecx].y
         mWrite " " 
     .ENDIF
     
-    .IF currIndex == maxSnakeSize
-        mov currIndex, 0
-    .ENDIF    
+    INC tailIndex
+    INC headIndex
+    
+    .IF tailIndex == maxSnakeSize
+        mov tailIndex, 0
+    .ENDIF
+
+    .IF headIndex == maxSnakeSize
+        mov headIndex, 0
+    .ENDIF
     ret
 printSnake2 ENDP    
     
@@ -202,7 +160,7 @@ printSnake ENDP
 printInfo PROC
 
     mGotoxy 0, maxRow+1
-    mWrite "Score: "    
+    mWrite "Score:  "    
     mov  eax,score
     call WriteInt
 
@@ -215,8 +173,8 @@ printInfo PROC
     mov  eax,SnakeSpeed
     call WriteInt
 
-    mGotoxy 63, maxRow+1
-    mWrite "Press P to pause!"
+    mGotoxy 60, maxRow+1
+    mWrite "Press ESC to pause!"
     mGotoxy 0,0     
     ret
 printInfo ENDP
@@ -305,7 +263,6 @@ pausedView PROC
     .ELSE
         mov EAX, 3
     .ENDIF
-    invoke Sleep, 1000
     mGotoxy 0,0      
     ret
 pausedView ENDP
@@ -348,12 +305,11 @@ gameOverView PROC
     ret 
 gameOverView ENDP
 
-ResetData PROC
-    mov SnakeSpeed, 25    
+ResetData PROC    
     mov col, 40
     mov row, 10 
-    mov currSize, 3
-    mov currIndex, 3
+    mov headIndex, 3
+    mov tailIndex, 0
     mov score, 0
     invoke SetDirection, 1,0,0,0
     ret

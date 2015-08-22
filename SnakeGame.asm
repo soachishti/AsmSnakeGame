@@ -1,13 +1,6 @@
-; Remove usage of mWrite
-; Highly optimization need in PrintSnake
-; Problem when array end
-
-TITLE Keyboard Toggle Keys             (Keybd.asm)
-
 INCLUDE Irvine32.inc
 INCLUDE Macros.inc
 INCLUDELIB user32.lib
-
 
 AXIS STRUCT 
     x BYTE 0
@@ -18,11 +11,12 @@ VK_LEFT		  EQU		000000025h
 VK_UP		  EQU		000000026h
 VK_RIGHT	  EQU		000000027h
 VK_DOWN		  EQU		000000028h
-maxCol        EQU     79
-maxRow        EQU     20
-wallTop       EQU     "================================================================================"
-wallLeft      EQU     '|'
-maxSnakeSize  EQU     250
+VK_ESCAPE     EQU		00000001bh
+maxCol        EQU       79
+maxRow        EQU       20
+wallTop       EQU       "================================================================================"
+wallLeft      EQU       '|'
+maxSnakeSize  EQU       255
       
 GetKeyState PROTO, nVirtKey:DWORD
 
@@ -32,20 +26,20 @@ GetKeyState PROTO, nVirtKey:DWORD
     col         BYTE    40
     row         BYTE    10
     SnakeBody   AXIS    maxSnakeSize DUP(<0,0>)
-    currSize    BYTE    3   
-    currIndex   BYTE    3   ; must be same as currSize
+    headIndex   BYTE    3   ; must be same as currSize
+    tailIndex   BYTE    0   ; must be same as currSize
     tmp         DWORD   0
     score       DWORD   0
     tChar       BYTE    0
     FoodLoc     AXIS    <0,0>
-    
     LEFT        BYTE    0
     RIGHT       BYTE    1   ; Start moving to right after starting 
     UP          BYTE    0
     DOWN        BYTE    0
     foodSign    BYTE    '@'
+
 .code
-INCLUDE procedures.inc
+INCLUDE Procedures.inc
 
 main PROC    
     call front ; front page
@@ -54,11 +48,13 @@ main PROC
     call mainMenu
     
     Restart:
+    call ClrScr
     call GenerateFood
     call PrintWall
    
     foreverLoop:   
         call EatAndGrow
+    
         call KeySync
         .IF EAX == -1
             jmp GamePaused
@@ -84,6 +80,7 @@ main PROC
             call ResetData
             jmp Restart
         .ELSEIF tChar == 2
+            call ResetData
             jmp StartFromMenu
         .ELSE 
             call ClrScr
@@ -92,17 +89,17 @@ main PROC
         jmp foreverLoop
    
     GameOver:
-        invoke Sleep, 500
+        invoke Sleep, 100
         ; Do stuff for after gameover
         call gameOverView 
         mov tChar, al           ; if we dont store value in memory .IF will change EAX while processing
 
         .IF tChar == 0      ; Restart
             call ResetData
-            call ClrScr
             jmp Restart
             ret
         .ELSEIF tChar == 1  ; Main menu
+            call ResetData
             jmp StartFromMenu
             ; Main Menu
         .ELSE
@@ -111,6 +108,6 @@ main PROC
         .ENDIF
         jmp foreverLoop
     
-	exit
+	ret
 main ENDP
 END main
