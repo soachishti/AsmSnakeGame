@@ -42,72 +42,7 @@ GetKeyState PROTO, nVirtKey:DWORD
 INCLUDE Procedures.inc
 
 main PROC    
-    call front ; front page
-    
-    StartFromMenu:
-    call mainMenu
-    
-    Restart:
-    call ClrScr
-    call GenerateFood
-    call PrintWall
-   
-    foreverLoop:   
-        call EatAndGrow
-    
-        call KeySync
-        .IF EAX == -1
-            jmp GamePaused
-        .ENDIF
-
-        call isGameOver
-        .IF EAX == 1
-            jmp GameOver
-        .ENDIF
-        
-        call printSnake2  
-        call printInfo
-        INC score
-       jmp foreverLoop
-   
-    GamePaused:
-        invoke Sleep, 100
-        call pausedView
-        mov tChar, al
-        .IF tChar == 0      ;Resume
-            jmp Restart
-        .ELSEIF tChar == 1  ;Restart
-            call ResetData
-            jmp Restart
-        .ELSEIF tChar == 2
-            call ResetData
-            jmp StartFromMenu
-        .ELSE 
-            call ClrScr
-            invoke ExitProcess, 0
-        .ENDIF
-        jmp foreverLoop
-   
-    GameOver:
-        invoke Sleep, 100
-        ; Do stuff for after gameover
-        call gameOverView 
-        mov tChar, al           ; if we dont store value in memory .IF will change EAX while processing
-
-        .IF tChar == 0      ; Restart
-            call ResetData
-            jmp Restart
-            ret
-        .ELSEIF tChar == 1  ; Main menu
-            call ResetData
-            jmp StartFromMenu
-            ; Main Menu
-        .ELSE
-            call ClrScr
-            invoke ExitProcess, 0
-        .ENDIF
-        jmp foreverLoop
-    
+    call StartGame   
 	ret
 main ENDP
 END main
