@@ -1,7 +1,7 @@
 # AsmSnakeGame
 Snake Game in Assembly (MASM 6.15)
 
-Screenshots
+## Screenshots
     
 ![Snake Game](https://github.com/soachishti/AsmSnakeGame/raw/master/Screenshots/SnakeGame001.png)
 
